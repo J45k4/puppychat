@@ -1,3 +1,83 @@
 html, body {
     overscroll-behavior: none;
+	font-family: Arial, sans-serif;
+	background: linear-gradient(to bottom right, #FFECB3, #F8BBD0, #CE93D8);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	/* height: 100vh; */
+	width: 100vw;
+	margin: 0;
+	touch-action: manipulation;
+}
+
+.container {
+	background: white;
+	border-radius: 20px;
+	box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+	/* max-width: 800px;
+	min-width: 400px; */
+	width: 100%;
+	/* height: 80vh; */
+	display: flex;
+	flex-direction: column;
+	/* flex-grow: 1; */
+	padding: 20px;
+}
+.header {
+	font-size: 24px;
+	font-weight: bold;
+	color: #7B1FA2;
+	text-align: center;
+	margin-bottom: 20px;
+}
+.chat-box {
+	flex: 1;
+	overflow-y: auto;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	padding: 10px;
+}
+.input-box {
+	display: flex;
+	margin-top: 10px;
+}
+.input-box input {
+	flex: 1;
+	padding: 10px;
+	border-radius: 10px;
+	border: 1px solid #ccc;
+}
+.input-box button {
+	background: #7B1FA2;
+	color: white;
+	border: none;
+	padding: 10px;
+	border-radius: 10px;
+	margin-left: 5px;
+	cursor: pointer;
+}
+.music-box {
+	display: none;
+	flex-direction: column;
+}
+.music-box input {
+	padding: 10px;
+	border-radius: 10px;
+	border: 1px solid #ccc;
+	margin-bottom: 10px;
+}
+.music-list {
+	flex: 1;
+	overflow-y: auto;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	padding: 10px;
+}
+
+.send-button {
+	border-top-left-radius: 0px;
+	border-bottom-left-radius: 0px;
+	border-top-right-radius: 10px;
+	border-bottom-right-radius: 10px;
 }

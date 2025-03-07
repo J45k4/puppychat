@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PuppyChat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom right, #FFECB3, #F8BBD0, #CE93D8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            width: 500px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .header {
+            font-size: 24px;
+            font-weight: bold;
+            color: #7B1FA2;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .input-box {
+            display: flex;
+            margin-top: 10px;
+        }
+        .input-box input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+        .input-box button {
+            background: #7B1FA2;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 10px;
+            margin-left: 5px;
+            cursor: pointer;
+        }
+        .music-box {
+            display: none;
+            flex-direction: column;
+        }
+        .music-box input {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+        .music-list {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">🐶 PuppyChat</div>
+        <div class="chat-box" id="chat-box"></div>
+        <div class="input-box">
+            <button onclick="toggleMusic()">🎶</button>
+            <input type="text" id="chat-input" placeholder="Type a message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+        <div class="music-box" id="music-box">
+            <input type="text" id="music-search" placeholder="Search for music..." oninput="filterMusic()">
+            <div class="music-list" id="music-list"></div>
+        </div>
+    </div>
+    <script>
+        const messages = [
+            { user: 'Buddy', text: 'Woof! Anyone here?' },
+            { user: 'Charlie', text: 'Hey Buddy! 🐾' }
+        ];
+        const songs = [
+            'Happy Puppy Tune',
+            'Chasing Tails Melody',
+            'Relaxing Doggy Beats',
+            'Paw Prints Rhythm'
+        ];
+
+        function updateChat() {
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = messages.map(msg => `<div><strong>${msg.user}:</strong> ${msg.text}</div>`).join('');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            if (input.value.trim()) {
+                messages.push({ user: 'You', text: input.value });
+                input.value = '';
+                updateChat();
+            }
+        }
+
+        function toggleMusic() {
+            const musicBox = document.getElementById('music-box');
+            musicBox.style.display = musicBox.style.display === 'flex' ? 'none' : 'flex';
+            updateMusicList();
+        }
+
+        function updateMusicList() {
+            const musicList = document.getElementById('music-list');
+            musicList.innerHTML = songs.map(song => `<div onclick="shareMusic('${song}')">🎵 ${song}</div>`).join('');
+        }
+
+        function filterMusic() {
+            const search = document.getElementById('music-search').value.toLowerCase();
+            const musicList = document.getElementById('music-list');
+            musicList.innerHTML = songs.filter(song => song.toLowerCase().includes(search)).map(song => `<div onclick="shareMusic('${song}')">🎵 ${song}</div>`).join('');
+        }
+
+        function shareMusic(song) {
+            messages.push({ user: 'You', text: `🎶 Shared music: ${song}` });
+            updateChat();
+            toggleMusic();
+        }
+
+        updateChat();
+    </script>
+</body>
+</html>
