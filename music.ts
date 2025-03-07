@@ -1,13 +1,37 @@
 import { chatIcon, nextIcon, pauseIcon, playIcon, prevIcon } from "./icons";
 import { navigate } from "./router";
+import { state } from "./state";
 
 const musicListItem = (args: { title: string; duration: number }) => {
 	const musicItem = document.createElement("div")
+	musicItem.style.backgroundColor = "white"
 	musicItem.style.display = "flex"
 	musicItem.style.justifyContent = "space-between"
 	musicItem.style.padding = "10px"
 	musicItem.style.borderBottom = "1px solid #ccc"
 	musicItem.style.cursor = "pointer"
+
+	state.selectedSong.onChange(selectedSong => {
+		if (selectedSong === args.title) {
+			musicItem.style.backgroundColor = "lightgrey"
+		} else {
+			musicItem.style.backgroundColor = "white"
+		}
+	})
+
+	musicItem.onclick = () => {
+		let audio = state.currentAudio.get()
+		if (audio) {
+			audio.pause()
+		}
+		state.playing.set(false)
+		const newAudio = new Audio(`./music/${args.title}`)
+		newAudio.preload = "auto"
+		newAudio.onloadedmetadata = () => {
+			state.currentAudio.set(newAudio)
+			state.selectedSong.set(args.title)
+		}
+	}
 
 	const musicTitle = document.createElement("div")
 	musicTitle.textContent = args.title
@@ -46,8 +70,30 @@ const timelineControls = () => {
 
 	const totalTime = document.createElement("span")
 	totalTime.id = "totalTime"
-	totalTime.textContent = "3:00"
+	totalTime.textContent = ""
 	totalTime.style.marginLeft = "10px"
+
+	progressSlider.oninput = () => {
+		const audio = state.currentAudio.get()
+		if (!audio || !audio.duration) return
+		const newTime = audio.duration * (Number(progressSlider.value) / 100)
+		console.log("newTime", newTime)
+		audio.currentTime = newTime
+		audio.play()
+	  }
+
+	state.currentAudio.onChange(audio => {
+		if (!audio) return
+		currentTime.textContent = "0:00"
+		progressSlider.value = "0"
+		if (!isNaN(audio.duration)) {
+			totalTime.textContent = `${Math.floor(audio.duration / 60)}:${Math.floor(audio.duration % 60)}`
+		}
+		audio.ontimeupdate = () => {
+			currentTime.textContent = `${Math.floor(audio.currentTime / 60)}:${Math.floor(audio.currentTime % 60)}`
+			progressSlider.value = (audio.currentTime / audio.duration) * 100 + ""
+		}
+	})
 
 	timelineContainer.append(currentTime, progressSlider, totalTime)
 	return timelineContainer
@@ -66,36 +112,38 @@ const playControls = () => {
 	controlsContainer.style.alignItems = "center"
 	controlsContainer.style.padding = "10px"
 
-	const audio = new Audio("./music/30_years_old_cat.mp3")
-
-	audio.ontimeupdate = () => {
-		const currentTime = document.querySelector("#currentTime") as HTMLSpanElement
-		currentTime.textContent = Math.floor(audio.currentTime / 60) + ":" + ("0" + Math.floor(audio.currentTime % 60)).slice(-2)
-		const progressSlider = document.querySelector("#progressSlider") as HTMLInputElement
-		progressSlider.value = (audio.currentTime / audio.duration * 100).toString()
-		const totalTime = document.querySelector("#totalTime") as HTMLSpanElement
-		totalTime.textContent = Math.floor(audio.duration / 60) + ":" + ("0" + Math.floor(audio.duration % 60)).slice(-2)
-	}
-
-	const prevButton = document.createElement("button")
-	prevButton.innerHTML = prevIcon
+	const currentSong = document.createElement("span")
+	currentSong.textContent = ""
+	// state.selectedSong.onChange(selectedSong => {
+	// 	currentSong.textContent = selectedSong || ""
+	// 	const audio = new Audio(`./music/${selectedSong}`)
+	// 	audio.preload = "auto"
+	// 	audio.onloadedmetadata = () => {
+	// 		console.log("audio metdata loaded", audio.duration)
+	// 		state.currentAudio.set(audio)
+	// 	}
+	// })
 
 	const playPauseButton = document.createElement("button")
 	playPauseButton.innerHTML = playIcon
 	playPauseButton.onclick = () => {
-		if (audio.paused) {
-			audio.play()
-			playPauseButton.innerHTML = playIcon
-		} else {
-			audio.pause()
-			playPauseButton.innerHTML = pauseIcon
-		}
+		state.playing.set(!state.playing.get())
+		const audio = state.currentAudio.get()
+		if (!audio) return
+		console.log("audio.currentTime", audio.currentTime)
+		if (audio.paused) audio.play()
+		else audio.pause()
 	}
+	state.playing.onChange(playing => {
+		console.log("playing", playing)
+		if (playing) {
+			playPauseButton.innerHTML = pauseIcon
+		} else {
+			playPauseButton.innerHTML = playIcon
+		}
+	})
 
-	const nextButton = document.createElement("button")
-	nextButton.innerHTML = nextIcon
-
-	controlsContainer.append(prevButton, playPauseButton, nextButton)
+	controlsContainer.append(currentSong, playPauseButton)
 	return controlsContainer
 }
 
@@ -109,26 +157,7 @@ export const musicView = async (root: HTMLElement) => {
 	container.style.backgroundColor = "white"
 	container.style.display = "flex"
 	container.style.flexDirection = "column"
-	// container.style.height = "100vh"
 	container.style.transition = "transform 0.3s ease"
-
-	// Arrow down button to hide the container
-	// const hideButton = document.createElement("button")
-	// hideButton.style.border = "none"
-	// hideButton.style.background = "transparent"
-	// hideButton.style.padding = "10px"
-	// hideButton.style.width = "100%"
-	// hideButton.style.display = "flex"
-	// hideButton.style.justifyContent = "center"
-	// hideButton.innerHTML = `
-	//   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" 
-	// 	stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	// 	<polyline points="6 9 12 15 18 9"></polyline>
-	//   </svg>
-	// `
-	// hideButton.addEventListener("click", () => {
-	// 	container.style.transform = "translateY(100vh)"
-	// })
 
 	const chatButton = document.createElement("button")
 	chatButton.innerHTML = chatIcon
@@ -143,6 +172,14 @@ export const musicView = async (root: HTMLElement) => {
 	searchInput.style.padding = "10px"
 	searchInput.style.border = "1px solid #ccc"
 	searchInput.placeholder = "Search for music"
+	searchInput.style.flexGrow = "1"
+
+	const inputContainer = document.createElement("div")
+	inputContainer.style.display = "flex"
+	inputContainer.style.flexDirection = "row"
+	inputContainer.style.gap = "10px"
+	inputContainer.style.margin = "5px"
+	inputContainer.append(chatButton, searchInput)
 
 	const songs = await fetch("/api/songs").then(res => res.json())
 
@@ -156,7 +193,7 @@ export const musicView = async (root: HTMLElement) => {
 	musicListContainer.style.overflowY = "auto"
 	musicListContainer.appendChild(musicList)
 
-	container.append(chatButton, searchInput, musicListContainer)
+	container.append(inputContainer, musicListContainer)
 	root.appendChild(container)
 	root.appendChild(timelineControls())
 	root.appendChild(playControls())
