@@ -176,11 +176,11 @@ var musicListItem = (args) => {
       audio.pause();
     }
     state.playing.set(false);
+    state.selectedSong.set(args.title);
     const newAudio = new Audio(`./music/${args.title}`);
     newAudio.preload = "auto";
     newAudio.onloadedmetadata = () => {
       state.currentAudio.set(newAudio);
-      state.selectedSong.set(args.title);
     };
   };
   const musicTitle = document.createElement("div");

@@ -1,0 +1,15 @@
+{
+	"short_name": "PuppyChat",
+	"name": "PuppyChat",
+	"icons": [
+		{
+			"src": "/favicon-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		}
+	],
+	"start_url": ".",
+	"display": "standalone",
+	"theme_color": "#000000",
+	"background_color": "#ffffff"
+}

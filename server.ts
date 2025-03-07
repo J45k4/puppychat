@@ -7,8 +7,9 @@ const vapidKeys = webpush.generateVAPIDKeys()
 const serveFile = (path: string, mimeType: string) => {
 	return async () => {
 		console.log("serveFile", path, mimeType)
-		const text = await Bun.file(path).text()
-		return new Response(text, { headers: { "Content-Type": mimeType } })
+		const file = Bun.file(path)
+		const fileContent = await file.arrayBuffer()
+		return new Response(fileContent, { headers: { "Content-Type": mimeType } })
 	}
 }
 
@@ -60,6 +61,9 @@ const subs: any[] = []
 Bun.serve({
 	port: 5477,
 	routes: {
+		"/favicon.ico": serveFile("./assets/favicon.ico", "image/x-icon"),
+		"/favicon-512x512.png": serveFile("./assets/favicon-512x512.png", "image/png"),
+		"/manifest.json": serveFile("./assets/manifest.json", "application/json"),
 		"/sw.js": () => new Response(Bun.file("./sw.js")),
 		"/puppychat.css": serveFile("./puppychat.css", "text/css"),
 		"/puppychat.js": serveFile("./puppychat.js", "text/javascript"),
