@@ -2,7 +2,7 @@ import { chatIcon, nextIcon, pauseIcon, playIcon, prevIcon } from "./icons";
 import { navigate } from "./router";
 import { state } from "./state";
 
-const musicListItem = (args: { title: string; duration: number }) => {
+const musicListItem = (args: { id: string, title: string; duration: number }) => {
 	const musicItem = document.createElement("div")
 	musicItem.style.backgroundColor = "white"
 	musicItem.style.display = "flex"
@@ -26,7 +26,7 @@ const musicListItem = (args: { title: string; duration: number }) => {
 		}
 		state.playing.set(false)
 		state.selectedSong.set(args.title)
-		const newAudio = new Audio(`./music/${args.title}`)
+		const newAudio = new Audio(`./api/music/${args.id}`)
 		newAudio.preload = "auto"
 		newAudio.onloadedmetadata = () => {
 			state.currentAudio.set(newAudio)
@@ -80,7 +80,7 @@ const timelineControls = () => {
 		console.log("newTime", newTime)
 		audio.currentTime = newTime
 		audio.play()
-	  }
+	}
 
 	state.currentAudio.onChange(audio => {
 		if (!audio) return
@@ -147,6 +147,16 @@ const playControls = () => {
 	return controlsContainer
 }
 
+function debounce(func, delay) {
+	let timeoutId;
+	return (...args) => {
+		if (timeoutId) clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => {
+			func(...args);
+		}, delay);
+	};
+}
+
 export const musicView = async (root: HTMLElement) => {
 	root.innerHTML = ""
 
@@ -167,12 +177,27 @@ export const musicView = async (root: HTMLElement) => {
 		navigate("/")
 	}
 
+	const musicList = document.createElement("div")
+
 	const searchInput = document.createElement("input")
 	searchInput.style.borderRadius = "10px"
 	searchInput.style.padding = "10px"
 	searchInput.style.border = "1px solid #ccc"
 	searchInput.placeholder = "Search for music"
 	searchInput.style.flexGrow = "1"
+	searchInput.oninput = debounce(async () => {
+		musicList.innerHTML = ""
+		const results = await fetch("/api/search?query=" + searchInput.value)
+			.then(res => res.json())
+
+		for (const result of results) {
+			musicList.appendChild(musicListItem({
+				id: result.id,
+				title: result.title,
+				duration: 0
+			}))
+		}
+	}, 300)
 
 	const inputContainer = document.createElement("div")
 	inputContainer.style.display = "flex"
@@ -181,12 +206,12 @@ export const musicView = async (root: HTMLElement) => {
 	inputContainer.style.margin = "5px"
 	inputContainer.append(chatButton, searchInput)
 
-	const songs = await fetch("/api/songs").then(res => res.json())
+	// const songs = await fetch("/api/songs").then(res => res.json())
 
-	const musicList = document.createElement("div")
-	for (const song of songs) {
-		musicList.appendChild(musicListItem({ title: song, duration: 180 }))
-	}
+
+	// for (const song of songs) {
+	// 	musicList.appendChild(musicListItem({ title: song, duration: 180 }))
+	// }
 
 	const musicListContainer = document.createElement("div")
 	musicListContainer.style.flexGrow = "1"

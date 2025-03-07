@@ -1,6 +1,7 @@
 import indexHtml from "./index.html"
 import webpush from "web-push"
 import { extname, join } from "path"
+import { spawn } from "bun"
 
 const vapidKeys = webpush.generateVAPIDKeys()
 
@@ -55,7 +56,34 @@ const serveDirectory = (directory: string, routePrefix: string) => {
 	}
 }
 
+const API_KEY = Bun.env["YOUTUBE_API_KEY"]
+
+function searchYouTube(query: string, maxResults = 10) {
+	const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=${maxResults}&key=${API_KEY}`
+	return fetch(url)
+		.then(response => {
+			if (!response.ok) {
+				throw new Error(`Network response was not ok (${response.statusText})`)
+			}
+			return response.json()
+		})
+}
+
+const exec = async (cmd: string[]) => {
+	console.log("running cmd:", cmd.join(" "))
+	const proc = await spawn(cmd)
+	const text = await new Response(proc.stdout).text()
+	return text
+}
+
+const downloadYoutubeVideo = async (videoId: string) => {
+	const url = `https://www.youtube.com/watch?v=${videoId}`
+	console.log("downloading", url)
+	await exec(["yt-dlp", "-x", "--audio-format", "mp3", "-i", url, "-o", `workdir/cache/${videoId}.%(ext)s`])
+}
+
 const db = await Bun.file("./workdir/db.json").json()
+const cacheDir = "./workdir/cache"
 
 const subs: any[] = []
 Bun.serve({
@@ -83,8 +111,56 @@ Bun.serve({
 		"/api/songs": async () => {
 			return new Response(JSON.stringify(db.songs), { headers: { "Content-Type": "application/json" } })
 		},
+		"/api/search": async (req) => {
+			const url = new URL(req.url)
+			const query = url.searchParams.get("query")
+			if (!query) {
+				return new Response("Missing query parameter", { status: 400 })
+			}
+			const results = await searchYouTube(query)
+			console.log("resulsts", results)
+			const items = results["items"]
+
+			const metadatas = items.map((p: any) => {
+				const videoId = p.id.videoId
+				const title = p.snippet.title
+				const thumbnail = p.snippet.thumbnails.default.url
+				return { id: videoId, title, thumbnail }
+			})
+
+			return new Response(JSON.stringify(metadatas), { headers: { "Content-Type": "application/json" } })
+		},
+		"/api/music/:id": async (req) => {
+			const id = req.params.id;
+			console.log(`get music ${id}`);
+			const path = join(cacheDir, `${id}.mp3`);
+
+			// Check for file existence using Bun.stat
+			try {
+				await Bun.stat(path);
+			} catch (error) {
+				console.log(`File does not exist in cache: ${path}`);
+				await downloadYoutubeVideo(id);
+
+				// Optionally, you can retry checking the file after download.
+				let attempts = 5;
+				while (attempts-- > 0) {
+					try {
+						await Bun.stat(path);
+						break; // file exists, exit loop
+					} catch (err) {
+						// Wait a short moment before retrying
+						await new Promise(resolve => setTimeout(resolve, 100));
+					}
+				}
+			}
+
+			// Once confirmed the file exists, serve it.
+			const file = Bun.file(path);
+			return new Response(file);
+		},
 		"/music": serveFile("./index.html", "text/html"),
-		"/music/*": serveDirectory("./workdir", "/workdir"),
+		// "/music/*": serveDirectory("./workdir", "/workdir"),
 		"/": serveFile("./index.html", "text/html"),
 	},
 })
