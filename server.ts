@@ -135,23 +135,19 @@ Bun.serve({
 			console.log(`get music ${id}`);
 			const path = join(cacheDir, `${id}.mp3`);
 
-			// Check for file existence using Bun.stat
-			try {
-				await Bun.stat(path);
-			} catch (error) {
+			// Check for file existence using Bun.file().exists()
+			const exists = await Bun.file(path).exists();
+			if (!exists) {
 				console.log(`File does not exist in cache: ${path}`);
 				await downloadYoutubeVideo(id);
 
-				// Optionally, you can retry checking the file after download.
+				// Optionally, retry checking the file after download.
 				let attempts = 5;
 				while (attempts-- > 0) {
-					try {
-						await Bun.stat(path);
+					if (await Bun.file(path).exists()) {
 						break; // file exists, exit loop
-					} catch (err) {
-						// Wait a short moment before retrying
-						await new Promise(resolve => setTimeout(resolve, 100));
 					}
+					await new Promise(resolve => setTimeout(resolve, 100));
 				}
 			}
 
@@ -160,7 +156,6 @@ Bun.serve({
 			return new Response(file);
 		},
 		"/music": serveFile("./index.html", "text/html"),
-		// "/music/*": serveDirectory("./workdir", "/workdir"),
 		"/": serveFile("./index.html", "text/html"),
 	},
 })

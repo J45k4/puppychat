@@ -1,8 +1,9 @@
+import { loaderIcon } from "./common";
 import { chatIcon, nextIcon, pauseIcon, playIcon, prevIcon } from "./icons";
 import { navigate } from "./router";
 import { state } from "./state";
 
-const musicListItem = (args: { id: string, title: string; duration: number }) => {
+const musicListItem = (args: { id: string, title: string; duration: number, thumpnail: string }) => {
 	const musicItem = document.createElement("div")
 	musicItem.style.backgroundColor = "white"
 	musicItem.style.display = "flex"
@@ -19,41 +20,49 @@ const musicListItem = (args: { id: string, title: string; duration: number }) =>
 		}
 	})
 
+	const itemStatusContainer = document.createElement("div")
+
 	musicItem.onclick = () => {
 		let audio = state.currentAudio.get()
 		if (audio) {
 			audio.pause()
+			state.currentAudio.set(null)
 		}
 		state.playing.set(false)
 		state.selectedSong.set(args.title)
 		const newAudio = new Audio(`./api/music/${args.id}`)
 		newAudio.preload = "auto"
+		const loader = loaderIcon({ width: 20, height: 20 })
+		itemStatusContainer.innerHTML = loader.outerHTML
 		newAudio.onloadedmetadata = () => {
 			state.currentAudio.set(newAudio)
+			const duration = document.createElement("div")
+			duration.textContent = `${Math.floor(newAudio.duration / 60)}:${Math.floor(newAudio.duration % 60)}`
+			itemStatusContainer.innerHTML = ""
+			itemStatusContainer.appendChild(duration)
 		}
 	}
 
 	const musicTitle = document.createElement("div")
 	musicTitle.textContent = args.title
 
-	const musicDuration = document.createElement("div")
-	musicDuration.textContent = args.duration + "s"
-
-	musicItem.append(musicTitle, musicDuration)
+	const descriptionGroup = document.createElement("div")
+	descriptionGroup.style.display = "flex"
+	descriptionGroup.style.flexGrow = "1"
+	const thumpnail = document.createElement("img")
+	thumpnail.src = args.thumpnail
+	thumpnail.style.width = "50px"
+	thumpnail.style.height = "50px"
+	descriptionGroup.append(thumpnail, musicTitle)
+	musicItem.append(descriptionGroup, itemStatusContainer)
 	return musicItem
 }
 
 const timelineControls = () => {
 	const timelineContainer = document.createElement("div")
-	timelineContainer.style.position = "fixed"
-	timelineContainer.style.bottom = "40px"
-	timelineContainer.style.left = "0"
-	timelineContainer.style.right = "0"
 	timelineContainer.style.padding = "10px"
 	timelineContainer.style.backgroundColor = "#fff"
-	timelineContainer.style.borderTop = "1px solid #ccc"
 	timelineContainer.style.display = "flex"
-	timelineContainer.style.alignItems = "center"
 
 	const currentTime = document.createElement("span")
 	currentTime.id = "currentTime"
@@ -101,28 +110,11 @@ const timelineControls = () => {
 
 const playControls = () => {
 	const controlsContainer = document.createElement("div")
-	controlsContainer.style.position = "fixed"
-	controlsContainer.style.bottom = "0"
-	controlsContainer.style.left = "0"
-	controlsContainer.style.right = "0"
-	controlsContainer.style.backgroundColor = "#fff"
-	controlsContainer.style.borderTop = "1px solid #ccc"
 	controlsContainer.style.display = "flex"
-	controlsContainer.style.justifyContent = "space-around"
-	controlsContainer.style.alignItems = "center"
 	controlsContainer.style.padding = "10px"
 
 	const currentSong = document.createElement("span")
 	currentSong.textContent = ""
-	// state.selectedSong.onChange(selectedSong => {
-	// 	currentSong.textContent = selectedSong || ""
-	// 	const audio = new Audio(`./music/${selectedSong}`)
-	// 	audio.preload = "auto"
-	// 	audio.onloadedmetadata = () => {
-	// 		console.log("audio metdata loaded", audio.duration)
-	// 		state.currentAudio.set(audio)
-	// 	}
-	// })
 
 	const playPauseButton = document.createElement("button")
 	playPauseButton.innerHTML = playIcon
@@ -147,9 +139,9 @@ const playControls = () => {
 	return controlsContainer
 }
 
-function debounce(func, delay) {
-	let timeoutId;
-	return (...args) => {
+function debounce(func: any, delay: any) {
+	let timeoutId: any;
+	return (...args: any[]) => {
 		if (timeoutId) clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
 			func(...args);
@@ -179,6 +171,10 @@ export const musicView = async (root: HTMLElement) => {
 
 	const musicList = document.createElement("div")
 
+	// musicList.appendChild(
+	// 	musicListItem({ id: "123456", title: "Song 1", duration: 180 })
+	// )
+
 	const searchInput = document.createElement("input")
 	searchInput.style.borderRadius = "10px"
 	searchInput.style.padding = "10px"
@@ -194,7 +190,8 @@ export const musicView = async (root: HTMLElement) => {
 			musicList.appendChild(musicListItem({
 				id: result.id,
 				title: result.title,
-				duration: 0
+				duration: 0,
+				thumpnail: result.thumbnail
 			}))
 		}
 	}, 300)
@@ -220,6 +217,31 @@ export const musicView = async (root: HTMLElement) => {
 
 	container.append(inputContainer, musicListContainer)
 	root.appendChild(container)
-	root.appendChild(timelineControls())
-	root.appendChild(playControls())
+
+	const controlsArea = document.createElement("div")
+	controlsArea.style.display = "flex"
+	controlsArea.style.flexDirection = "row"
+	controlsArea.style.position = "fixed"
+	controlsArea.style.bottom = "0"
+	controlsArea.style.left = "0"
+	controlsArea.style.right = "0"
+	controlsArea.style.backgroundColor = "white"
+	controlsArea.style.borderTop = "1px solid #ccc"
+	controlsArea.style.padding = "10px"
+	root.appendChild(controlsArea)
+
+	state.currentAudio.onChange(selectedSong => {
+		if (!selectedSong) {
+			controlsArea.innerHTML = ""
+			return
+		}
+		controlsArea.innerHTML = ""
+		const timeline = timelineControls()
+		timeline.style.flexGrow = "1"
+		controlsArea.appendChild(timeline)
+		controlsArea.appendChild(playControls())
+	})
+	// root.appendChild(loaderIcon())
+	// root.appendChild(timelineControls())
+	// root.appendChild(playControls())
 }
