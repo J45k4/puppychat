@@ -1,1 +1,1 @@
-bun build ./app.ts --outfile=./puppychat.js --watch
+bun build ./src/app.ts --outfile=./assets/puppychat.js --watch
