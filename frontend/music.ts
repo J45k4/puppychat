@@ -2,6 +2,7 @@ import { loaderIcon } from "./common";
 import { chatIcon, nextIcon, pauseIcon, playIcon, prevIcon } from "./icons";
 import { navigate } from "./router";
 import { state } from "./state";
+import { ws } from "./ws";
 
 const musicListItem = (args: { id: string, title: string; duration: number, thumpnail: string }) => {
 	const musicItem = document.createElement("div")
@@ -41,6 +42,7 @@ const musicListItem = (args: { id: string, title: string; duration: number, thum
 			itemStatusContainer.innerHTML = ""
 			itemStatusContainer.appendChild(duration)
 		}
+		ws.send({ type: "play", songId: args.id, chatId: "1" })
 	}
 
 	const musicTitle = document.createElement("div")

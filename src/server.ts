@@ -2,7 +2,7 @@ import webpush from "web-push"
 import { extname, join } from "path"
 import { spawn } from "bun"
 import type { MsgToServer } from "../global-types"
-import type { Context } from "./types"
+import { Context } from "./types"
 import { Chatroom } from "./chat"
 import { handleMsg } from "./ws"
 
@@ -10,7 +10,7 @@ const vapidKeys = webpush.generateVAPIDKeys()
 
 const serveFile = (path: string, mimeType: string) => {
 	return async () => {
-		console.log("serveFile", path, mimeType)
+		//console.log("serveFile", path, mimeType)
 		const file = Bun.file(path)
 		const fileContent = await file.arrayBuffer()
 		return new Response(fileContent, { headers: { "Content-Type": mimeType } })
@@ -89,32 +89,38 @@ const db = await Bun.file("./workdir/db.json").json()
 const cacheDir = "./workdir/cache"
 
 const subs: any[] = []
+const chatrooms = new Map<string, Chatroom>()
 Bun.serve<Context, {}>({
 	port: 5477,
-	async fetch(req, server) {
-		// upgrade the request to a WebSocket
-		if (server.upgrade(req, {
-			data: {
-				chatrooms: new Map<string, Chatroom>(),
-			}
-		})) {
-			return new Response("Upgrading to WebSocket", { status: 101 })
-		}
-		return new Response("Upgrade failed", { status: 500 });
-	},
+	// async fetch(req, server) {
+	// 	// upgrade the request to a WebSocket
+	// 	console.log("upgrade", req.url)
+	// 	if (server.upgrade(req, {
+	// 		data: {
+	// 			chatrooms: new Map<string, Chatroom>(),
+	// 		}
+	// 	})) {
+	// 		return new Response("Upgrading to WebSocket", { status: 101 })
+	// 	}
+	// 	return new Response("Upgrade failed", { status: 500 });
+	// },
 	websocket: {
 		async message(ws, msg) {
 			const jsonMsg = JSON.parse(msg) as MsgToServer
 			await handleMsg(jsonMsg, ws, ws.data)
 		},
-		open: (ws) => { },
-		close: (ws, code, msg) => { },
+		open: (ws) => { console.log("open connection", ws) },
+		close: (ws, code, msg) => {
+			chatrooms.forEach((chatroom) => {
+				chatroom.removeClient(ws)
+			})
+		},
 	},
 	routes: {
 		"/favicon.ico": serveFile("./assets/favicon.ico", "image/x-icon"),
 		"/favicon-512x512.png": serveFile("./assets/favicon-512x512.png", "image/png"),
 		"/manifest.json": serveFile("./assets/manifest.json", "application/json"),
-		"/sw.js": () => new Response(Bun.file("./sw.js")),
+		"/sw.js": () => serveFile("./assets/sw.js", "text/javascript"),
 		"/puppychat.css": serveFile("./assets/puppychat.css", "text/css"),
 		"/puppychat.js": serveFile("./assets/puppychat.js", "text/javascript"),
 		"/send": () => {
@@ -178,6 +184,17 @@ Bun.serve<Context, {}>({
 			return new Response(file);
 		},
 		"/music": serveFile("./assets/index.html", "text/html"),
+		"/ws": (req, server) => {
+			console.log("upgrade", req.url)
+			if (server.upgrade(req, {
+				data: new Context({
+					chatrooms,
+				})
+			})) {
+				return new Response("Upgrading to WebSocket", { status: 101 })
+			}
+			return new Response("Upgrade failed", { status: 500 });
+		},
 		"/": serveFile("./assets/index.html", "text/html"),
 	},
 })

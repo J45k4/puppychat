@@ -3,8 +3,10 @@ import { Chatroom } from "./chat"
 export class Context {
 	chatrooms: Map<string, Chatroom>
 
-	constructor() {
-		this.chatrooms = new Map<string, Chatroom>();
+	constructor(args: {
+		chatrooms: Map<string, Chatroom>
+	}) {
+		this.chatrooms = args.chatrooms
 	}
 
 	getChatroom(chatId: string) {

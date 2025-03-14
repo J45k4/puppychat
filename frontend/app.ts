@@ -1,6 +1,7 @@
 import { chatView } from "./chat"
 import { musicView } from "./music"
 import { routes } from "./router"
+import { ws } from "./ws"
 
 function urlBase64ToUint8Array(base64String: string) {
 	return btoa(base64String)
@@ -20,9 +21,60 @@ window.onload = () => {
 	const body = document.body
 	if (!body) return
 
+	ws.onConnected(() => {
+		ws.send({ type: "joinChat", chatId: "1" })
+	})
+
+	const notificationsBox = document.createElement("div")
+	notificationsBox.style.position = "fixed"
+	notificationsBox.style.top = "0"
+	notificationsBox.style.right = "0"
+	notificationsBox.style.backgroundColor = "white"
+	// notificationsBox.style.padding = "10px"
+	body.appendChild(notificationsBox)
+
+	ws.onMsg(msg => {
+		console.log("received", msg)
+		const note = document.createElement("div")
+		note.textContent = JSON.stringify(msg)
+		notificationsBox.appendChild(note)
+		setTimeout(() => {
+			notificationsBox.removeChild(note)
+		}, 3000)
+		switch (msg.type) {
+			case "play": 
+				console.log("play")
+				const audio = new Audio(`/api/music/${msg.songId}`)
+				audio.onloadedmetadata = () => {
+					console.log("metadata loaded")
+					const wantsToPlayNote = document.createElement("div")
+					wantsToPlayNote.textContent = "Wants to play"
+					wantsToPlayNote.style.position = "fixed"
+					wantsToPlayNote.style.top = "50%";
+					wantsToPlayNote.style.left = "50%";
+					wantsToPlayNote.style.transform = "translate(-50%, -50%)";
+					wantsToPlayNote.style.backgroundColor = "yellow"
+					wantsToPlayNote.style.padding = "10px"
+					body.appendChild(wantsToPlayNote)
+
+					const playButton = document.createElement("button")
+					playButton.textContent = "Play"
+					playButton.onclick = () => {
+						audio.play()
+						body.removeChild(wantsToPlayNote)
+					}
+					wantsToPlayNote.appendChild(playButton)
+				}	
+				break
+		}
+	})
+
+	const pageContent = document.createElement("div")
+	body.appendChild(pageContent)
+
 	routes({
-		"/music": () => musicView(body),
-		"/": () => chatView(body)
+		"/music": () => musicView(pageContent),
+		"/": () => chatView(pageContent)
 	})
 
 	// const chatForm = document.getElementById("chatForm")
