@@ -164,7 +164,8 @@ class NotifyValue {
 var state = {
   selectedSong: new NotifyValue(null),
   playing: new NotifyValue(false),
-  currentAudio: new NotifyValue(null)
+  currentAudio: new NotifyValue(null),
+  progress: new NotifyValue(0)
 };
 
 // frontend/ws.ts
@@ -241,7 +242,7 @@ var musicListItem = (args) => {
       itemStatusContainer.innerHTML = "";
       itemStatusContainer.appendChild(duration);
     };
-    ws.send({ type: "play", songId: args.id, chatId: "1" });
+    ws.send({ type: "selectSong", songId: args.id, chatId: "1" });
   };
   const musicTitle = document.createElement("div");
   musicTitle.textContent = args.title;
@@ -256,7 +257,8 @@ var musicListItem = (args) => {
   musicItem.append(descriptionGroup, itemStatusContainer);
   return musicItem;
 };
-var timelineControls = () => {
+var timelineControls = (args) => {
+  const audio = args.audio;
   const timelineContainer = document.createElement("div");
   timelineContainer.style.padding = "10px";
   timelineContainer.style.backgroundColor = "#fff";
@@ -277,26 +279,24 @@ var timelineControls = () => {
   totalTime.textContent = "";
   totalTime.style.marginLeft = "10px";
   progressSlider.oninput = () => {
-    const audio = state.currentAudio.get();
-    if (!audio || !audio.duration)
+    console.log("oninput");
+    const audio2 = state.currentAudio.get();
+    if (!audio2 || !audio2.duration)
       return;
-    const newTime = audio.duration * (Number(progressSlider.value) / 100);
+    const newTime = audio2.duration * (Number(progressSlider.value) / 100);
     console.log("newTime", newTime);
-    audio.currentTime = newTime;
-    audio.play();
+    state.progress.set(newTime);
+    ws.send({ type: "setProgress", progress: newTime, chatId: "1" });
   };
-  state.currentAudio.onChange((audio) => {
-    if (!audio)
-      return;
-    currentTime.textContent = "0:00";
-    progressSlider.value = "0";
-    if (!isNaN(audio.duration)) {
-      totalTime.textContent = `${Math.floor(audio.duration / 60)}:${Math.floor(audio.duration % 60)}`;
-    }
-    audio.ontimeupdate = () => {
-      currentTime.textContent = `${Math.floor(audio.currentTime / 60)}:${Math.floor(audio.currentTime % 60)}`;
-      progressSlider.value = audio.currentTime / audio.duration * 100 + "";
-    };
+  if (!isNaN(args.audio.duration)) {
+    totalTime.textContent = `${Math.floor(args.audio.duration / 60)}:${Math.floor(args.audio.duration % 60)}`;
+  }
+  args.audio.ontimeupdate = () => {
+    currentTime.textContent = `${Math.floor(audio.currentTime / 60)}:${Math.floor(audio.currentTime % 60)}`;
+    progressSlider.value = audio.currentTime / audio.duration * 100 + "";
+  };
+  state.progress.onChange((progress) => {
+    progressSlider.value = String(progress / audio.duration * 100);
   });
   timelineContainer.append(currentTime, progressSlider, totalTime);
   return timelineContainer;
@@ -310,15 +310,17 @@ var playControls = () => {
   const playPauseButton = document.createElement("button");
   playPauseButton.innerHTML = playIcon;
   playPauseButton.onclick = () => {
-    state.playing.set(!state.playing.get());
     const audio = state.currentAudio.get();
     if (!audio)
       return;
     console.log("audio.currentTime", audio.currentTime);
-    if (audio.paused)
-      audio.play();
-    else
-      audio.pause();
+    if (audio.paused) {
+      state.playing.set(true);
+      ws.send({ type: "play", chatId: "1" });
+    } else {
+      state.playing.set(false);
+      ws.send({ type: "pause", chatId: "1" });
+    }
   };
   state.playing.onChange((playing) => {
     console.log("playing", playing);
@@ -399,17 +401,52 @@ var musicView = async (root) => {
   controlsArea.style.borderTop = "1px solid #ccc";
   controlsArea.style.padding = "10px";
   root.appendChild(controlsArea);
+};
+var musicPlayerControls = () => {
+  const controlsArea = document.createElement("div");
+  controlsArea.style.display = "flex";
+  controlsArea.style.flexDirection = "row";
+  controlsArea.style.position = "fixed";
+  controlsArea.style.bottom = "0";
+  controlsArea.style.left = "0";
+  controlsArea.style.right = "0";
+  controlsArea.style.backgroundColor = "white";
+  controlsArea.style.borderTop = "1px solid #ccc";
+  controlsArea.style.padding = "10px";
   state.currentAudio.onChange((selectedSong) => {
     if (!selectedSong) {
       controlsArea.innerHTML = "";
       return;
     }
+    console.log("selectedSong", selectedSong);
     controlsArea.innerHTML = "";
-    const timeline = timelineControls();
+    const timeline = timelineControls({
+      audio: selectedSong
+    });
     timeline.style.flexGrow = "1";
     controlsArea.appendChild(timeline);
     controlsArea.appendChild(playControls());
   });
+  return controlsArea;
+};
+
+// frontend/notifications.ts
+var notificationsBox = document.createElement("div");
+notificationsBox.style.position = "fixed";
+notificationsBox.style.top = "0";
+notificationsBox.style.right = "0";
+notificationsBox.style.backgroundColor = "white";
+notificationsBox.style.maxHeight = "40vh";
+var initNotifications = () => {
+  document.body.appendChild(notificationsBox);
+};
+var notify = (msg) => {
+  const note = document.createElement("div");
+  note.textContent = msg;
+  notificationsBox.appendChild(note);
+  setTimeout(() => {
+    notificationsBox.removeChild(note);
+  }, 3000);
 };
 
 // frontend/app.ts
@@ -420,48 +457,56 @@ window.onload = () => {
   ws.onConnected(() => {
     ws.send({ type: "joinChat", chatId: "1" });
   });
-  const notificationsBox = document.createElement("div");
-  notificationsBox.style.position = "fixed";
-  notificationsBox.style.top = "0";
-  notificationsBox.style.right = "0";
-  notificationsBox.style.backgroundColor = "white";
-  body.appendChild(notificationsBox);
+  initNotifications();
   ws.onMsg((msg) => {
+    if (msg.type !== "setProgress")
+      notify(JSON.stringify(msg));
     console.log("received", msg);
-    const note = document.createElement("div");
-    note.textContent = JSON.stringify(msg);
-    notificationsBox.appendChild(note);
-    setTimeout(() => {
-      notificationsBox.removeChild(note);
-    }, 3000);
     switch (msg.type) {
       case "play":
         console.log("play");
+        notify("play");
+        state.playing.set(true);
+        break;
+      case "pause":
+        console.log("pause");
+        notify("pause");
+        state.playing.set(false);
+        break;
+      case "selectSong": {
         const audio = new Audio(`/api/music/${msg.songId}`);
         audio.onloadedmetadata = () => {
-          console.log("metadata loaded");
-          const wantsToPlayNote = document.createElement("div");
-          wantsToPlayNote.textContent = "Wants to play";
-          wantsToPlayNote.style.position = "fixed";
-          wantsToPlayNote.style.top = "50%";
-          wantsToPlayNote.style.left = "50%";
-          wantsToPlayNote.style.transform = "translate(-50%, -50%)";
-          wantsToPlayNote.style.backgroundColor = "yellow";
-          wantsToPlayNote.style.padding = "10px";
-          body.appendChild(wantsToPlayNote);
-          const playButton = document.createElement("button");
-          playButton.textContent = "Play";
-          playButton.onclick = () => {
-            audio.play();
-            body.removeChild(wantsToPlayNote);
-          };
-          wantsToPlayNote.appendChild(playButton);
+          console.log("metadata loaded for selected song");
+          state.currentAudio.set(audio);
         };
         break;
+      }
+      case "setProgress": {
+        state.progress.set(msg.progress);
+        break;
+      }
     }
+  });
+  state.playing.onChange((playing) => {
+    const audio = state.currentAudio.get();
+    if (!audio)
+      return;
+    notify(`playing: ${playing}`);
+    if (playing)
+      audio.play();
+    else
+      audio.pause();
+  });
+  state.progress.onChange((progress) => {
+    const audio = state.currentAudio.get();
+    if (!audio)
+      return;
+    audio.currentTime = progress;
   });
   const pageContent = document.createElement("div");
   body.appendChild(pageContent);
+  const controls = musicPlayerControls();
+  body.appendChild(controls);
   routes({
     "/music": () => musicView(pageContent),
     "/": () => chatView(pageContent)

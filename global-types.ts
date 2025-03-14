@@ -2,7 +2,6 @@
 export type Play = {
 	type: "play"
 	chatId: string
-	songId: string
 }
 
 export type Pause = {
@@ -25,5 +24,17 @@ export type JoinChat = {
 	chatId: string
 }
 
-export type MsgToServer = Play | Pause | Stop | JoinChat
-export type MsgToClient = Play | Pause | Stop
+export type SelectSong = {
+	type: "selectSong"
+	songId: string
+	chatId: string
+}
+
+export type SetProgress = {
+	type: "setProgress"
+	chatId: string
+	progress: number
+}
+
+export type MsgToServer = Play | Pause | Stop | JoinChat | SelectSong | SetProgress
+export type MsgToClient = Play | Pause | Stop | SelectSong | SetProgress

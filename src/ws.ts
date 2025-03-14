@@ -9,13 +9,19 @@ export const handleMsg = (msg: MsgToServer, ws: WebSocket, ctx: Context) => {
 			ctx.getChatroom(msg.chatId).addClient(ws)
 			break
 		case "play":
-			ctx.getChatroom(msg.chatId).broadcast(msg)
+			ctx.getChatroom(msg.chatId).broadcast(msg, ws)
 			break
 		case "pause":
-			ctx.getChatroom(msg.chatId).broadcast(msg)
+			ctx.getChatroom(msg.chatId).broadcast(msg, ws)
 			break
 		case "stop":
-			ctx.getChatroom(msg.chatId).broadcast(msg)
+			ctx.getChatroom(msg.chatId).broadcast(msg, ws)
+			break
+		case "selectSong":
+			ctx.getChatroom(msg.chatId).broadcast(msg, ws)
+			break
+		case "setProgress":
+			ctx.getChatroom(msg.chatId).broadcast(msg, ws)
 			break
 	}
 }

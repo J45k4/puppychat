@@ -11,10 +11,12 @@ export class Client {
 export class Chatroom {
 	private clients: Set<WebSocket> = new Set()
 
-	public broadcast(msg: MsgToClient) {
+	public broadcast(msg: MsgToClient, me: WebSocket) {
 		console.log(`broadcasting ${msg.type} to ${this.clients.size} clients`)
 		for (const ws of this.clients) {
-			ws.send(JSON.stringify(msg))
+			if (ws !== me) {
+				ws.send(JSON.stringify(msg))
+			}
 		}
 	}
 	public addClient(client: WebSocket) {

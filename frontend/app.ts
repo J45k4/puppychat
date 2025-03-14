@@ -1,6 +1,8 @@
 import { chatView } from "./chat"
-import { musicView } from "./music"
+import { musicPlayerControls, musicView } from "./music"
+import { initNotifications, notify } from "./notifications"
 import { routes } from "./router"
+import { state } from "./state"
 import { ws } from "./ws"
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -25,52 +27,56 @@ window.onload = () => {
 		ws.send({ type: "joinChat", chatId: "1" })
 	})
 
-	const notificationsBox = document.createElement("div")
-	notificationsBox.style.position = "fixed"
-	notificationsBox.style.top = "0"
-	notificationsBox.style.right = "0"
-	notificationsBox.style.backgroundColor = "white"
-	// notificationsBox.style.padding = "10px"
-	body.appendChild(notificationsBox)
+	initNotifications()
 
 	ws.onMsg(msg => {
+		if (msg.type !== "setProgress") notify(JSON.stringify(msg))
 		console.log("received", msg)
-		const note = document.createElement("div")
-		note.textContent = JSON.stringify(msg)
-		notificationsBox.appendChild(note)
-		setTimeout(() => {
-			notificationsBox.removeChild(note)
-		}, 3000)
+		
 		switch (msg.type) {
 			case "play": 
 				console.log("play")
+				notify("play")
+				state.playing.set(true)
+				break
+			case "pause": 
+				console.log("pause")
+				notify("pause")
+				state.playing.set(false)
+				break
+			case "selectSong": {
 				const audio = new Audio(`/api/music/${msg.songId}`)
 				audio.onloadedmetadata = () => {
-					console.log("metadata loaded")
-					const wantsToPlayNote = document.createElement("div")
-					wantsToPlayNote.textContent = "Wants to play"
-					wantsToPlayNote.style.position = "fixed"
-					wantsToPlayNote.style.top = "50%";
-					wantsToPlayNote.style.left = "50%";
-					wantsToPlayNote.style.transform = "translate(-50%, -50%)";
-					wantsToPlayNote.style.backgroundColor = "yellow"
-					wantsToPlayNote.style.padding = "10px"
-					body.appendChild(wantsToPlayNote)
-
-					const playButton = document.createElement("button")
-					playButton.textContent = "Play"
-					playButton.onclick = () => {
-						audio.play()
-						body.removeChild(wantsToPlayNote)
-					}
-					wantsToPlayNote.appendChild(playButton)
-				}	
+					console.log("metadata loaded for selected song")
+					state.currentAudio.set(audio)
+				}
 				break
+			}
+			case "setProgress": {
+				state.progress.set(msg.progress)
+				break
+			}
 		}
+	})
+
+	state.playing.onChange(playing => {
+		const audio = state.currentAudio.get()
+		if (!audio) return
+		notify(`playing: ${playing}`)
+		if (playing) audio.play()
+		else audio.pause()
+	})
+
+	state.progress.onChange(progress => {
+		const audio = state.currentAudio.get()
+		if (!audio) return
+		audio.currentTime = progress
 	})
 
 	const pageContent = document.createElement("div")
 	body.appendChild(pageContent)
+	const controls = musicPlayerControls()
+	body.appendChild(controls)
 
 	routes({
 		"/music": () => musicView(pageContent),

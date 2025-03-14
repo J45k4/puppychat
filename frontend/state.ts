@@ -24,5 +24,6 @@ export class NotifyValue<T> {
 export const state = {
 	selectedSong: new NotifyValue<string | null>(null),
 	playing: new NotifyValue<boolean>(false),
-	currentAudio: new NotifyValue<HTMLAudioElement | null>(null)
+	currentAudio: new NotifyValue<HTMLAudioElement | null>(null),
+	progress: new NotifyValue<number>(0)
 }

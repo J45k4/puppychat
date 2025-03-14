@@ -1,5 +1,6 @@
 import { loaderIcon } from "./common";
 import { chatIcon, nextIcon, pauseIcon, playIcon, prevIcon } from "./icons";
+import { notify } from "./notifications";
 import { navigate } from "./router";
 import { state } from "./state";
 import { ws } from "./ws";
@@ -42,7 +43,7 @@ const musicListItem = (args: { id: string, title: string; duration: number, thum
 			itemStatusContainer.innerHTML = ""
 			itemStatusContainer.appendChild(duration)
 		}
-		ws.send({ type: "play", songId: args.id, chatId: "1" })
+		ws.send({ type: "selectSong", songId: args.id, chatId: "1" })
 	}
 
 	const musicTitle = document.createElement("div")
@@ -60,7 +61,10 @@ const musicListItem = (args: { id: string, title: string; duration: number, thum
 	return musicItem
 }
 
-const timelineControls = () => {
+const timelineControls = (args: {
+	audio: HTMLAudioElement
+}) => {
+	const audio = args.audio
 	const timelineContainer = document.createElement("div")
 	timelineContainer.style.padding = "10px"
 	timelineContainer.style.backgroundColor = "#fff"
@@ -85,26 +89,40 @@ const timelineControls = () => {
 	totalTime.style.marginLeft = "10px"
 
 	progressSlider.oninput = () => {
+		console.log("oninput")
 		const audio = state.currentAudio.get()
 		if (!audio || !audio.duration) return
 		const newTime = audio.duration * (Number(progressSlider.value) / 100)
 		console.log("newTime", newTime)
-		audio.currentTime = newTime
-		audio.play()
+		state.progress.set(newTime)
+		ws.send({ type: "setProgress", progress: newTime, chatId: "1" })
 	}
 
-	state.currentAudio.onChange(audio => {
-		if (!audio) return
-		currentTime.textContent = "0:00"
-		progressSlider.value = "0"
-		if (!isNaN(audio.duration)) {
-			totalTime.textContent = `${Math.floor(audio.duration / 60)}:${Math.floor(audio.duration % 60)}`
-		}
-		audio.ontimeupdate = () => {
-			currentTime.textContent = `${Math.floor(audio.currentTime / 60)}:${Math.floor(audio.currentTime % 60)}`
-			progressSlider.value = (audio.currentTime / audio.duration) * 100 + ""
-		}
+	if (!isNaN(args.audio.duration)) {
+		totalTime.textContent = `${Math.floor(args.audio.duration / 60)}:${Math.floor(args.audio.duration % 60)}`
+	}
+	args.audio.ontimeupdate = () => {
+		currentTime.textContent = `${Math.floor(audio.currentTime / 60)}:${Math.floor(audio.currentTime % 60)}`
+		progressSlider.value = (audio.currentTime / audio.duration) * 100 + ""
+		// ws.send({ type: "setProgress", progress: audio.currentTime, chatId: "1" })
+	}
+
+	state.progress.onChange(progress => {
+		// notify(`progress: ${progress}`)
+		progressSlider.value = String((progress / audio.duration) * 100)
 	})
+
+	// state.currentAudio.onChange(audio => {
+	// 	if (!audio) return
+	// 	currentTime.textContent = "0:00"
+	// 	progressSlider.value = "0"
+	// 	if (!isNaN(audio.duration)) {
+	// 		totalTime.textContent = `${Math.floor(audio.duration / 60)}:${Math.floor(audio.duration % 60)}`
+	// 	}
+	// 	audio.ontimeupdate = () => {
+
+	// 	}
+	// })
 
 	timelineContainer.append(currentTime, progressSlider, totalTime)
 	return timelineContainer
@@ -121,12 +139,17 @@ const playControls = () => {
 	const playPauseButton = document.createElement("button")
 	playPauseButton.innerHTML = playIcon
 	playPauseButton.onclick = () => {
-		state.playing.set(!state.playing.get())
 		const audio = state.currentAudio.get()
 		if (!audio) return
 		console.log("audio.currentTime", audio.currentTime)
-		if (audio.paused) audio.play()
-		else audio.pause()
+		
+		if (audio.paused) {
+			state.playing.set(true)
+			ws.send({ type: "play", chatId: "1" })
+		} else {
+			state.playing.set(false)
+			ws.send({ type: "pause", chatId: "1" })
+		}
 	}
 	state.playing.onChange(playing => {
 		console.log("playing", playing)
@@ -232,18 +255,52 @@ export const musicView = async (root: HTMLElement) => {
 	controlsArea.style.padding = "10px"
 	root.appendChild(controlsArea)
 
+	// state.currentAudio.onChange(selectedSong => {
+	// 	if (!selectedSong) {
+	// 		controlsArea.innerHTML = ""
+	// 		return
+	// 	}
+	// 	controlsArea.innerHTML = ""
+	// 	const timeline = timelineControls({
+	// 		audio: selectedSong
+	// 	})
+	// 	timeline.style.flexGrow = "1"
+	// 	controlsArea.appendChild(timeline)
+	// 	controlsArea.appendChild(playControls())
+	// })
+	// root.appendChild(loaderIcon())
+	// root.appendChild(timelineControls())
+	// root.appendChild(playControls())
+}
+
+
+
+export const musicPlayerControls = () => {
+	const controlsArea = document.createElement("div")
+	controlsArea.style.display = "flex"
+	controlsArea.style.flexDirection = "row"
+	controlsArea.style.position = "fixed"
+	controlsArea.style.bottom = "0"
+	controlsArea.style.left = "0"
+	controlsArea.style.right = "0"
+	controlsArea.style.backgroundColor = "white"
+	controlsArea.style.borderTop = "1px solid #ccc"
+	controlsArea.style.padding = "10px"
+
 	state.currentAudio.onChange(selectedSong => {
 		if (!selectedSong) {
 			controlsArea.innerHTML = ""
 			return
 		}
+		console.log("selectedSong", selectedSong)
 		controlsArea.innerHTML = ""
-		const timeline = timelineControls()
+		const timeline = timelineControls({
+			audio: selectedSong
+		})
 		timeline.style.flexGrow = "1"
 		controlsArea.appendChild(timeline)
 		controlsArea.appendChild(playControls())
 	})
-	// root.appendChild(loaderIcon())
-	// root.appendChild(timelineControls())
-	// root.appendChild(playControls())
+
+	return controlsArea
 }
